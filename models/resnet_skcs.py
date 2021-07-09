@@ -220,8 +220,10 @@ class ResNet(nn.Module):
         self.stage_1 = nn.Sequential(
             SKCSUnit(128, 512, 32, 2, 8, 2, stride=2),
         )
+        self.conv4 = nn.Conv2d(512, 512, 3, stride=2, padding=1)
         self.avgpool1 = nn.AdaptiveAvgPool2d(1)
         self.fc1 = nn.Linear(512 * block.expansion, num_classes)
+
         # 2
         self.stage_2 = nn.Sequential(
             SKCSUnit(256, 512, 16, 2, 8, 2, stride=2),
@@ -279,23 +281,24 @@ class ResNet(nn.Module):
 
         # output 1
         feature1 = self.stage_1(feature1) # 512*16*16 / 512*64*64 / 512*32*32
+        feature1 = self.conv4(feature1) # 新增 512*16*16
         output1 = self.avgpool1(feature1) # 512*1*1
         output1 = output1.view(output1.size(0), -1)
         output1 = self.fc1(output1)
         # output 2
         feature2 = self.stage_2(feature2) # 512*8*8 / 512*32*32 / 512*16*16
-        feature2 = self.upsample3(feature2) # 512*16*16 / 512*64*64 / 512*32*32
+        # feature2 = self.upsample3(feature2) # 512*16*16 / 512*64*64 / 512*32*32
         # feature2 = feature2 + feature1 # feature fusion # 512*16*16
         feature2 = torch.cat((feature2, feature1), dim=1) # 1024*16*16
-        output2 = self.conv2(feature2) # 512*16*16 / 512*64*64 / 512*32*32
+        output2 = self.conv2(feature2) # 512*16*16 / 512*64*64 / 512*16*16
         output2 = self.avgpool2(output2) #512*1*1
         output2 = output2.view(output2.size(0), -1)
         output2 = self.fc2(output2)
         # output 3
         feature3 = self.stage_3(feature3) # 512*8*8 / 512*32*32 / 512*16*16
-        feature3 = self.upsample4(feature3) #512*16*16 / 512*64*64 / 512*32*32
+        # feature3 = self.upsample4(feature3) #512*16*16 / 512*64*64 / 512*32*32
         # feature3 = feature3 + feature2 + feature1 #512*16*16
-        feature3 = torch.cat((feature3, feature2, feature1), dim=1) # 2048*16*16 / 2048*64*64
+        feature3 = torch.cat((feature3, feature2, feature1), dim=1) # 2048*16*16 
         output3 = self.conv3(feature3) #512*16*16 / 512*64*64 / 512*32*32
         output3 = self.avgpool3(output3) #512*1*1
         output3 = output3.view(output3.size(0), -1)
